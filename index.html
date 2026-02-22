@@ -14,8 +14,21 @@
         body { font-family: var(--font-family); background: #222; color: #eee; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         
         /* 左侧控制面板 */
-        #control-panel { width: 320px; min-width: 320px; max-width: 320px; padding: 20px; border-right: 1px solid #333; display: flex; flex-direction: column; background: #2a2a2a; box-shadow: 2px 0 10px rgba(0,0,0,0.3); z-index: 10; }
+        #control-panel { width: 320px; min-width: 150px; max-width: 600px; padding: 20px; border-right: 1px solid #333; display: flex; flex-shrink: 0; flex-direction: column; background: rgba(0, 0, 0, 0.2); box-shadow: 2px 0 10px rgba(0,0,0,0.3); z-index: 10; backdrop-filter: blur(10px);}
         
+        #resizer {
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 8px; /* 感应宽度 */
+        height: 100%;
+        cursor: col-resize; /* 鼠标悬停显示双向箭头 */
+        z-index: 20;
+        }
+        #resizer:hover {
+            background: rgba(255, 255, 255, 0.1); /* 鼠标移上去时稍微亮一下提示用户 */
+        }
+
         .section { margin-bottom: 20px; }
         .section-title { font-size: 14px; font-weight: bold; color: #888; margin-bottom: 10px; text-transform: uppercase; }
         
@@ -39,7 +52,7 @@
             font-size: var(--font-size);
         }
         
-        .log-line { padding: 15px 0; line-height: 1.6; border-bottom: 1px solid rgba(128,128,128,0.2); }
+        .log-line { padding: 15px 0; line-height: 1.6; border-bottom: 1px solid rgba(255, 255, 255, 0.1);}
         .char-name { font-weight: bold; color: inherit; filter: brightness(1.4); margin-right: 12px; }
 
         ::-webkit-scrollbar { width: 8px; }
@@ -50,7 +63,7 @@
 <body>
 
 <div id="control-panel">
-    <div class="section">
+    <div id="resizer"></div> <div class="section">
         <div class="section-title">外观设置</div>
         <div class="setting-item">
             背景颜色 <input type="color" id="bg-picker" value="#1a1a1a">
@@ -107,8 +120,16 @@
     });
 
     // 实时更新样式
-    bgPicker.addEventListener('input', (e) => {
-        display.style.setProperty('--bg-color', e.target.value);
+        bgPicker.addEventListener('input', (e) => {
+        const color = e.target.value;
+        display.style.setProperty('--bg-color', color);
+        
+        // 逻辑：如果背景色太亮，让左边栏变得更深一点；如果背景色太深，让左边栏稍微透出一点底色
+        // 简单做法：直接让 control-panel 的背景色也跟着联动
+        const panel = document.getElementById('control-panel');
+        panel.style.backgroundColor = color; 
+        // 增加一个亮度降低滤镜，让左边栏永远比右边暗 20%
+        panel.style.filter = "brightness(0.8) contrast(1.2)";
     });
 
     textPicker.addEventListener('input', (e) => {
@@ -178,6 +199,35 @@
             exportBtn.style.background = '#3498db';
         });
     });
+
+    const panel = document.getElementById('control-panel');
+    const resizer = document.getElementById('resizer');
+
+    resizer.addEventListener('mousedown', (e) => {
+        // 阻止文字选中干扰拖拽
+        e.preventDefault();
+        
+        document.addEventListener('mousemove', resize);
+        document.addEventListener('mouseup', stopResize);
+        
+        // 给 body 加个类，防止拖动时鼠标指针闪烁或跳变
+        document.body.style.cursor = 'col-resize';
+    });
+
+    function resize(e) {
+        // 设置边栏宽度为鼠标当前 X 坐标
+        const newWidth = e.clientX;
+        if (newWidth >= 150 && newWidth <= 600) {
+            panel.style.width = newWidth + 'px';
+        }
+    }
+
+    function stopResize() {
+        document.removeEventListener('mousemove', resize);
+        document.removeEventListener('mouseup', stopResize);
+        document.body.style.cursor = 'default';
+    }
+
 </script>
 
 </body>
