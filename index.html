@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>文字游戏对话记录生成器</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #d1d1d1;
+            --font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            --font-size: 18px;
+        }
+
+        body { font-family: var(--font-family); background: #222; color: #eee; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        
+        /* 左侧控制面板 */
+        #control-panel { width: 320px; min-width: 320px; max-width: 320px; padding: 20px; border-right: 1px solid #333; display: flex; flex-direction: column; background: #2a2a2a; box-shadow: 2px 0 10px rgba(0,0,0,0.3); z-index: 10; }
+        
+        .section { margin-bottom: 20px; }
+        .section-title { font-size: 14px; font-weight: bold; color: #888; margin-bottom: 10px; text-transform: uppercase; }
+        
+        textarea { width: 100%; flex-grow: 1; background: #111; border: 1px solid #444; color: #ccc; padding: 12px; font-size: 14px; border-radius: 4px; resize: none; line-height: 1.5; outline: none; box-sizing: border-box; }
+
+        /* 设置项样式 */
+        .setting-item { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+        input[type="color"] { border: none; width: 40px; height: 25px; cursor: pointer; background: none; }
+        input[type="range"] { width: 120px; cursor: pointer; }
+        select { background: #444; color: white; border: none; padding: 4px; border-radius: 4px; width: 120px; }
+
+        /* 右侧预览区预览区 */
+        #log-view { 
+            flex-grow: 1; 
+            padding: 40px 10%; 
+            overflow-y: auto; 
+            background: var(--bg-color); 
+            color: var(--text-color);
+            font-family: var(--font-family);
+            transition: background 0.3s, color 0.3s;
+            font-size: var(--font-size);
+        }
+        
+        .log-line { padding: 15px 0; line-height: 1.6; border-bottom: 1px solid rgba(128,128,128,0.2); }
+        .char-name { font-weight: bold; color: inherit; filter: brightness(1.4); margin-right: 12px; }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #444; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+<body>
+
+<div id="control-panel">
+    <div class="section">
+        <div class="section-title">外观设置</div>
+        <div class="setting-item">
+            背景颜色 <input type="color" id="bg-picker" value="#1a1a1a">
+        </div>
+        <div class="setting-item">
+            字体颜色 <input type="color" id="text-picker" value="#d1d1d1">
+        </div>
+        <div class="setting-item">
+            字体大小 <span id="size-val">18px</span>
+            <input type="range" id="size-slider" min="12" max="40" value="18">
+        </div>
+        <div class="setting-item">
+            字体样式 
+            <select id="font-selector">
+                <option value="'PingFang SC', sans-serif">默认黑体</option>
+                <option value="'KaiTi', 'STKaiti', serif">楷体</option>
+                <option value="'Microsoft YaHei', sans-serif">微软雅黑</option>
+                <option value="monospace">等宽字体</option>
+                <option value="'Georgia', serif">衬线体 </option>
+            </select>
+        </div>
+        <div class="setting-item" style="margin-top: 20px;">
+            <button id="export-btn" style="width: 100%; padding: 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">保存为长图</button>
+        </div>
+    </div>
+
+    <div class="section" style="flex-grow: 1; display: flex; flex-direction: column;">
+        <div class="section-title">内容输入</div>
+        <textarea id="raw-input" placeholder="输入规则：
+1. 名字 空格 句子 (自动加粗名字)
+2. 纯句子 (直接显示文本)
+* 不需要输入冒号"></textarea>
+    </div>
+</div>
+
+<div id="log-view" id="display">
+    </div>
+
+<script>
+    const input = document.getElementById('raw-input');
+    const display = document.getElementById('log-view');
+    const bgPicker = document.getElementById('bg-picker');
+    const textPicker = document.getElementById('text-picker');
+    const fontSelector = document.getElementById('font-selector');
+    const sizeSlider = document.getElementById('size-slider');
+    const sizeVal = document.getElementById('size-val');
+
+    sizeSlider.addEventListener('input', (e) => {
+        const val = e.target.value + 'px';
+        // 更新 CSS 变量，让右侧文字变大变小
+        display.style.setProperty('--font-size', val);
+        // 更新左侧显示的数字（如 "18px"）
+        sizeVal.innerText = val;
+    });
+
+    // 实时更新样式
+    bgPicker.addEventListener('input', (e) => {
+        display.style.setProperty('--bg-color', e.target.value);
+    });
+
+    textPicker.addEventListener('input', (e) => {
+        display.style.setProperty('--text-color', e.target.value);
+    });
+
+    fontSelector.addEventListener('change', (e) => {
+        display.style.setProperty('--font-family', e.target.value);
+    });
+
+    // 实时处理文本
+    input.addEventListener('input', () => {
+        const lines = input.value.split('\n');
+        display.innerHTML = ''; 
+
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            if (trimmed === '') return;
+
+            const entry = document.createElement('div');
+            entry.className = 'log-line';
+
+            const spaceIndex = trimmed.indexOf(' ');
+            
+            if (spaceIndex !== -1) {
+                const name = trimmed.substring(0, spaceIndex);
+                const text = trimmed.substring(spaceIndex + 1);
+                entry.innerHTML = `<span class="char-name">${name}</span><span>${text}</span>`;
+            } else {
+                entry.innerHTML = `<span>${trimmed}</span>`;
+            }
+            display.appendChild(entry);
+        });
+        display.scrollTop = display.scrollHeight;
+    });
+
+    const exportBtn = document.getElementById('export-btn');
+
+    exportBtn.addEventListener('click', () => {
+        const originalText = exportBtn.innerText;
+        exportBtn.innerText = '正在生成全长图...';
+        exportBtn.style.background = '#95a5a6';
+
+        // 核心改动：设置 scrollY 为 0，并手动指定渲染的高度为内容的实际高度（scrollHeight）
+        html2canvas(display, {
+            backgroundColor: getComputedStyle(display).getPropertyValue('--bg-color'),
+            scale: 2, 
+            useCORS: true,
+            height: display.scrollHeight, // 捕捉元素的总高度，包含滚动区域
+            windowHeight: display.scrollHeight, 
+            y: 0, // 从顶部开始截取
+            scrollX: 0,
+            scrollY: 0,
+            onclone: (clonedDoc) => {
+                // 在克隆出的文档中，把滚动区域的高度撑开，确保内容不被裁剪
+                const clonedDisplay = clonedDoc.getElementById('log-view');
+                clonedDisplay.style.overflow = 'visible';
+                clonedDisplay.style.height = 'auto';
+            }
+        }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = '对话历史长图.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            exportBtn.innerText = originalText;
+            exportBtn.style.background = '#3498db';
+        });
+    });
+</script>
+
+</body>
+</html>
