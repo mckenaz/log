@@ -46,35 +46,23 @@
             padding: 40px 10%; 
             overflow-y: auto; 
             
-            /* 1. 基础背景颜色 */
-            background-color: var(--bg-color); 
-            color: var(--text-color);
-            font-family: var(--font-family);
-            font-size: var(--font-size);
-            position: relative;
-            z-index: 1;
-        }
+            /* 核心逻辑：背景由两层组成 */
+            /* 第一层：一个动态的遮罩层，颜色取自 bg-color，透明度取自滑块 */
+            /* 第二层：用户上传的背景图 */
+            background: 
+                linear-gradient(var(--mask-color, rgba(26, 26, 26, 0.5)), var(--mask-color, rgba(26, 26, 26, 0.5))), 
+                var(--bg-image,none);
 
-        /* 2. 背景图片层 */
-        #log-view::before {
-            content: "";
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            
-            background-image: var(--bg-image);
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
+            /* 确保背景跟随内容滚动，实现长图全覆盖 */
             background-attachment: local;
 
-            /* 核心：透明度由变量控制 */
-            opacity: var(--bg-opacity, 0.5);
-            
-            /* 核心：混合模式让背景颜色能“透”上来调节图片色调 */
-            mix-blend-mode: multiply; 
-            
-            z-index: -1;
-            pointer-events: none;
+            color: var(--text-color);
+            font-family: var(--font-family);
+            font-size: var(--font-size);
+            transition: color 0.3s;
         }
         
         .log-line { padding: 15px 0; line-height: 1.6; border-bottom: 1px solid rgba(127, 127, 127, 0.25);}
@@ -150,18 +138,6 @@
         sizeVal.innerText = val;
     });
 
-    // 实时更新样式
-        bgPicker.addEventListener('input', (e) => {
-        const color = e.target.value;
-        display.style.setProperty('--bg-color', color);
-        
-        // 逻辑：如果背景色太亮，让左边栏变得更深一点；如果背景色太深，让左边栏稍微透出一点底色
-        // 简单做法：直接让 control-panel 的背景色也跟着联动
-        const panel = document.getElementById('control-panel');
-        panel.style.backgroundColor = color; 
-        // 增加一个亮度降低滤镜，让左边栏永远比右边暗 20%
-        panel.style.filter = "brightness(0.8) contrast(1.2)";
-    });
 
     textPicker.addEventListener('input', (e) => {
         display.style.setProperty('--text-color', e.target.value);
@@ -262,24 +238,48 @@
     const bgUpload = document.getElementById('bg-upload');
     const bgOpacity = document.getElementById('bg-opacity');
 
-    // 上传并设置预览
-    bgUpload.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                // 将图片转为 Base64 设为 CSS 变量
-                display.style.setProperty('--bg-image', `url(${event.target.result})`);
-            };
-            reader.readAsDataURL(file);
-        }
-    });
 
     // 调节透明度
     bgOpacity.addEventListener('input', (e) => {
         display.style.setProperty('--bg-opacity', e.target.value / 100);
     });
 
+    // 封装一个更新背景的函数
+    function updateBackground() {
+        const color = bgPicker.value;
+        const opacity = 1 - (bgOpacity.value / 100); // 滑块值越高，遮罩越薄，图越亮
+        
+        // 将 hex 颜色转为 rgba
+        const r = parseInt(color.substr(1, 2), 16);
+        const g = parseInt(color.substr(3, 2), 16);
+        const b = parseInt(color.substr(5, 2), 16);
+        
+        const rgba = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        display.style.setProperty('--mask-color', rgba);
+        
+        // 同时更新左侧面板颜色
+        const panel = document.getElementById('control-panel');
+        panel.style.backgroundColor = color;
+        panel.style.filter = "brightness(0.8) contrast(1.2)";
+    }
+
+    // 绑定事件
+    bgPicker.addEventListener('input', updateBackground);
+    bgOpacity.addEventListener('input', updateBackground);
+
+    // 图片上传部分保持不变
+    bgUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                display.style.setProperty('--bg-image', `url(${event.target.result})`);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    updateBackground();
 </script>
 
 </body>
