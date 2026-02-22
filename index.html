@@ -50,9 +50,26 @@
             font-family: var(--font-family);
             transition: background 0.3s, color 0.3s;
             font-size: var(--font-size);
+
+            position: relative;
+            z-index: 1; 
+            background-size: cover;
+            background-position: center;
+        }
+
+        #log-view::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: var(--bg-image); 
+            background-size: cover;
+            background-position: center;
+            opacity: var(--bg-opacity, 0.5); 
+            z-index: -1;
+            pointer-events: none;
         }
         
-        .log-line { padding: 15px 0; line-height: 1.6; border-bottom: 1px solid rgba(255, 255, 255, 0.1);}
+        .log-line { padding: 15px 0; line-height: 1.6; border-bottom: 1px solid rgba(127, 127, 127, 0.25);}
         .char-name { font-weight: bold; color: inherit; filter: brightness(1.4); margin-right: 12px; }
 
         ::-webkit-scrollbar { width: 8px; }
@@ -85,8 +102,14 @@
                 <option value="'Georgia', serif">衬线体 </option>
             </select>
         </div>
+        <div class="setting-item">
+            背景图片 <input type="file" id="bg-upload" accept="image/*" style="width: 140px; font-size: 12px;">
+        </div>
+        <div class="setting-item">
+            图片透明度 <input type="range" id="bg-opacity" min="0" max="100" value="50">
+        </div>
         <div class="setting-item" style="margin-top: 20px;">
-            <button id="export-btn" style="width: 100%; padding: 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">保存为长图</button>
+            <button id="export-btn" style="width: 100%; padding: 10px; background: #8cc4e6; color: rgb(0, 0, 0); border: none; border-radius: 4px; cursor: pointer;">保存为长图</button>
         </div>
     </div>
 
@@ -227,6 +250,29 @@
         document.removeEventListener('mouseup', stopResize);
         document.body.style.cursor = 'default';
     }
+
+    const bgUpload = document.getElementById('bg-upload');
+    const bgOpacity = document.getElementById('bg-opacity');
+
+    // 上传并设置预览
+    bgUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                // 将图片转为 Base64 设为 CSS 变量
+                display.style.setProperty('--bg-image', `url(${event.target.result})`);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // 调节透明度
+    bgOpacity.addEventListener('input', (e) => {
+        // 找到预览区的 before 伪元素修改透明度
+        // 或者直接修改整个预览区的亮度/透明度倾向
+        display.style.setProperty('--bg-opacity', e.target.value / 100);
+    });
 
 </script>
 
